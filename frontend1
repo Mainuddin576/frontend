@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Weather App</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #4facfe, #00f2fe);
+      padding: 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 380px;
+      background: rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 24px;
+      color: #fff;
+      text-align: center;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    h1 {
+      margin-bottom: 16px;
+      font-size: 1.6rem;
+    }
+
+    form {
+      display: flex;
+      gap: 8px;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px 14px;
+      border: none;
+      border-radius: 10px;
+      outline: none;
+      font-size: 1rem;
+    }
+
+    button {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 10px;
+      background: #ff9800;
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #e68900;
+    }
+
+    #message {
+      margin-top: 12px;
+      min-height: 20px;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      margin-top: 16px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .icon {
+      font-size: 4rem;
+      margin: 8px 0;
+    }
+
+    .temp {
+      font-size: 3rem;
+      font-weight: bold;
+    }
+
+    .desc {
+      font-size: 1.1rem;
+      margin-bottom: 16px;
+    }
+
+    .details {
+      display: flex;
+      justify-content: space-around;
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .details span {
+      display: block;
+      font-size: 0.85rem;
+      opacity: 0.9;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <h1>🌤️ Weather App</h1>
+
+    <form id="searchForm">
+      <input type="text" id="cityInput" placeholder="City ka naam likho..." required />
+      <button type="submit">Search</button>
+    </form>
+
+    <p id="message"></p>
+
+    <div id="weatherCard" class="card hidden">
+      <h2 id="cityName"></h2>
+      <div id="icon" class="icon"></div>
+      <div id="temp" class="temp"></div>
+      <div id="desc" class="desc"></div>
+
+      <div class="details">
+        <div><span>Humidity</span><strong id="humidity"></strong></div>
+        <div><span>Wind</span><strong id="wind"></strong></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("searchForm");
+    const cityInput = document.getElementById("cityInput");
+    const message = document.getElementById("message");
+    const card = document.getElementById("weatherCard");
+
+    // Weather code -> [description, emoji]
+    const weatherCodes = {
+      0: ["Clear sky", "☀️"],
+      1: ["Mainly clear", "🌤️"],
+      2: ["Partly cloudy", "⛅"],
+      3: ["Overcast", "☁️"],
+      45: ["Fog", "🌫️"],
+      48: ["Fog", "🌫️"],
+      51: ["Light drizzle", "🌦️"],
+      53: ["Drizzle", "🌦️"],
+      55: ["Heavy drizzle", "🌦️"],
+      61: ["Light rain", "🌧️"],
+      63: ["Rain", "🌧️"],
+      65: ["Heavy rain", "🌧️"],
+      71: ["Light snow", "🌨️"],
+      73: ["Snow", "❄️"],
+      75: ["Heavy snow", "❄️"],
+      80: ["Rain showers", "🌦️"],
+      81: ["Rain showers", "🌧️"],
+      82: ["Violent showers", "⛈️"],
+      95: ["Thunderstorm", "⛈️"],
+      96: ["Thunderstorm with hail", "⛈️"],
+      99: ["Thunderstorm with hail", "⛈️"],
+    };
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const city = cityInput.value.trim();
+      if (!city) return;
+
+      message.textContent = "Loading...";
+      card.classList.add("hidden");
+
+      try {
+        // 1) City ka naam -> latitude/longitude
+        const geoRes = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`
+        );
+        const geoData = await geoRes.json();
+
+        if (!geoData.results || geoData.results.length === 0) {
+          message.textContent = "City nahi mili, dobara try karo.";
+          return;
+        }
+
+        const { latitude, longitude, name, country } = geoData.results[0];
+
+        // 2) Weather data lao
+        const weatherRes = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}` +
+            `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code`
+        );
+        const weatherData = await weatherRes.json();
+        const c = weatherData.current;
+
+        const [desc, emoji] = weatherCodes[c.weather_code] || ["Unknown", "🌈"];
+
+        // 3) UI update karo
+        document.getElementById("cityName").textContent = `${name}, ${country}`;
+        document.getElementById("icon").textContent = emoji;
+        document.getElementById("temp").textContent = `${Math.round(c.temperature_2m)}°C`;
+        document.getElementById("desc").textContent = desc;
+        document.getElementById("humidity").textContent = `${c.relative_humidity_2m}%`;
+        document.getElementById("wind").textContent = `${c.wind_speed_10m} km/h`;
+
+        message.textContent = "";
+        card.classList.remove("hidden");
+      } catch (err) {
+        message.textContent = "Kuch gadbad ho gayi. Internet check karo.";
+      }
+    });
+  </script>
+</body>
+</html>
